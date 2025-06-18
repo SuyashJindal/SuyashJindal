@@ -19,7 +19,3 @@ Here are some ideas to get you started:
 
 
 ![Suyash Jindal's GitHub Stats](https://github-readme-stats.vercel.app/api?username=SuyashJindal&show_icons=true&count_private=true&hide=issues&theme=default)
-- ⭐ I’ve starred **0** repositories
-- 🛠️ I’ve created **0** public projects
-
-
