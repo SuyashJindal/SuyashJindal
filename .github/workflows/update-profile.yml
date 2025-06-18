@@ -1,50 +1,38 @@
-name: Update GitHub Profile Stats
+name: Update Starred and Repo Count in README
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Runs every day at midnight UTC
-  workflow_dispatch: # allows manual triggering
+    - cron: "0 0 * * *"  # every day at midnight UTC
+  workflow_dispatch:
 
 jobs:
   update:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Repo
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Fetch Starred & Repo Count
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const { data: user } = await github.rest.users.getByUsername({
-              username: context.repo.owner,
-            });
+      - name: Get GitHub user stats
+        id: get_data
+        run: |
+          echo "USERNAME=${{ github.repository_owner }}" >> $GITHUB_ENV
+          curl -s "https://api.github.com/users/${{ github.repository_owner }}" > user.json
+          STARS=$(curl -s "https://api.github.com/users/${{ github.repository_owner }}/starred?per_page=1" -I | grep -i "link" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p')
+          REPOS=$(jq '.public_repos' user.json)
+          echo "STARS=${STARS}" >> $GITHUB_ENV
+          echo "REPOS=${REPOS}" >> $GITHUB_ENV
 
-            const stars = await github.paginate(github.rest.activity.listReposStarredByUser, {
-              username: context.repo.owner,
-              per_page: 100,
-            });
+      - name: Update README.md
+        run: |
+          sed -i "s/⭐ I’ve starred \*\*[0-9]*\*\*/⭐ I’ve starred **${STARS}**/" README.md
+          sed -i "s/🛠️ I’ve created \*\*[0-9]*\*\*/🛠️ I’ve created **${REPOS}**/" README.md
 
-            const repos = await github.paginate(github.rest.repos.listForUser, {
-              username: context.repo.owner,
-              type: "owner",
-              per_page: 100,
-            });
-
-            const fs = require('fs');
-            let readme = fs.readFileSync('README.md', 'utf8');
-
-            const newContent = readme
-              .replace(/⭐ I’ve starred \*\*(\d+)\*\*/, `⭐ I’ve starred **${stars.length}**`)
-              .replace(/🛠️ I’ve created \*\*(\d+)\*\*/, `🛠️ I’ve created **${repos.length}**`);
-
-            fs.writeFileSync('README.md', newContent);
-      
-      - name: Commit changes
+      - name: Commit and push if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add README.md
-          git commit -m "Update starred and repo count" || echo "No changes to commit"
+          git diff --quiet && git diff --staged --quiet || git commit -m "📝 Update stars and repo count"
           git push
+
